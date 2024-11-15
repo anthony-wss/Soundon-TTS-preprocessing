@@ -1,0 +1,11 @@
+transformers
+torch
+librosa
+soundfile
+datasets
+tqdm
+torchaudio
+h5py
+tensorflow
+tf-keras
+moshi
