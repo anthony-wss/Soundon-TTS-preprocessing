@@ -28,6 +28,7 @@ EPAD_TOKEN = "[END_PAD]"
 PAD_TOKEN_ID = 51867
 XVECTOR_SR = 16000
 MIMI_SR = 24000
+BATCH_SIZE = 16
     
 
 mimi = MimiModel()
@@ -37,39 +38,57 @@ audio_data_manager = AudioDataManager()
 text_aligner = TextAligner(tokenizer, PAD_TOKEN, EPAD_TOKEN)
 
 
-def dump_sample(frame_list, audio_file, speaker_id, sample_path):
+def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
     global mimi
     global tokenizer
     global audio_data_manager
     global xvector
     global text_aligner
 
-    start_sec = frame_list[0].start_sec
-    end_sec = frame_list[-1].end_sec
-
     # Step 1: Extract x-vector
-    audio = audio_data_manager.get(audio_file, speaker_id, XVECTOR_SR)
-    audio = audio[int(start_sec*XVECTOR_SR):int(end_sec*XVECTOR_SR)]
+    batch_audio = []
+    for frame_list in batch_frame_list:
+        start_sec = frame_list[0].start_sec
+        end_sec = frame_list[-1].end_sec
+
+        audio = audio_data_manager.get(audio_file, speaker_id, XVECTOR_SR)
+        audio = audio[int(start_sec*XVECTOR_SR):int(end_sec*XVECTOR_SR)]
+        batch_audio.append(audio)
     # sf.write(sample_path, audio, 16000) # data should be 1-dim tensor
-    spk_emb = xvector.encode(audio, XVECTOR_SR)
+    batch_spk_emb = xvector.encode(batch_audio, XVECTOR_SR)
 
     # Step 2: Extract mimi codec
-    audio = audio_data_manager.get(audio_file, speaker_id, MIMI_SR)
-    audio = audio[int(start_sec*MIMI_SR):int(end_sec*MIMI_SR)]
-    codes = mimi.encode(audio, MIMI_SR)
+    batch_audio = []
+    for frame_list in batch_frame_list:
+        start_sec = frame_list[0].start_sec
+        end_sec = frame_list[-1].end_sec
+        audio = audio_data_manager.get(audio_file, speaker_id, MIMI_SR)
+        audio = audio[int(start_sec*MIMI_SR):int(end_sec*MIMI_SR)]
+        batch_audio.append(audio)
+    batch_codes = mimi.encode(batch_audio, MIMI_SR)
 
     # Step 3: Process Text
-    codec_length = codes.shape[-1]
-    raw_text, text_with_pad = text_aligner.pad(frame_list, codec_length)
+    batch_raw_text, batch_text_with_pad = [], []
+    for i in range(len(batch_codes)):
+        codes = batch_codes[i]
+        frame_list = batch_frame_list[i]
+        codec_length = codes.shape[-1]
+        raw_text, text_with_pad = text_aligner.pad(frame_list, codec_length)
+        batch_raw_text.append(raw_text)
+        batch_text_with_pad.append(text_with_pad)
     
     sample_obj = {
-        "text": raw_text,
-        "text_with_pad": text_with_pad,
-        "unit": codes.squeeze().tolist(),
-        "x-vector": spk_emb
+        "text": batch_raw_text,
+        "text_with_pad": batch_text_with_pad,
+        "unit": batch_codes,
+        "x-vector": batch_spk_emb
     }
 
     return sample_obj
+
+
+def sort_duration(clips):
+    return sorted(clips, key=lambda x: x.end_sec - x.start_sec)
 
 
 def main():
@@ -117,20 +136,25 @@ def main():
 
         # Step 3: extract unit and x-vector
         dataset_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
-        # for spk in speaker_set:
-        for spk in [1]:
+        for spk in speaker_set:
             # patient = 10
             idx = 0
             spk_dataset_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
+            batch_clip = []
+            clips[spk].sort(key=lambda clip: clip[-1].end_sec - clip[0].start_sec)
             for clip in tqdm(clips[spk]):
                 if clip[-1].end_sec - clip[0].start_sec < 0.3:
                     continue
-                sample_obj = dump_sample(clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
-                idx += 1
-                spk_dataset_dict["text"].append(sample_obj["text"]) 
-                spk_dataset_dict["text_with_pad"].append(sample_obj["text_with_pad"]) 
-                spk_dataset_dict["unit"].append(sample_obj["unit"]) 
-                spk_dataset_dict["x-vector"].append(sample_obj["x-vector"]) 
+                batch_clip.append(clip)
+
+                if len(batch_clip) == BATCH_SIZE:
+                    sample_obj = dump_sample(batch_clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
+                # idx += 1
+                    spk_dataset_dict["text"].extend(sample_obj["text"]) 
+                    spk_dataset_dict["text_with_pad"].extend(sample_obj["text_with_pad"]) 
+                    spk_dataset_dict["unit"].extend(sample_obj["unit"]) 
+                    spk_dataset_dict["x-vector"].extend(sample_obj["x-vector"]) 
+                    batch_clip = []
 
                 # patient -= 1
                 # if patient < 0:
