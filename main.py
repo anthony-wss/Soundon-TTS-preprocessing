@@ -80,9 +80,11 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
         codec_length = codes.shape[-1]
         raw_text, text_with_pad = text_aligner.pad(frame_list, codec_length)
         if raw_text is None or text_with_pad is None:
-            return {k: [] for k in ["text", "text_with_pad", "unit", "x-vector"]}
-        batch_raw_text.append(raw_text)
-        batch_text_with_pad.append(text_with_pad)
+            del batch_codes[i]
+            del batch_spk_emb[i]
+        else:
+            batch_raw_text.append(raw_text)
+            batch_text_with_pad.append(text_with_pad)
     
     sample_obj = {
         "text": batch_raw_text,
