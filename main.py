@@ -56,13 +56,11 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
         end_sec = frame_list[-1].end_sec
 
         audio = audio_data_manager.get(audio_file, speaker_id, XVECTOR_SR)
-        start_frame = int(start_sec*XVECTOR_SR)
-        end_frame = min(start_frame + 5*XVECTOR_SR, int(end_sec*XVECTOR_SR))  # At most 5 sec
-        audio = audio[start_frame:end_frame]
+        audio = audio[int(start_sec*XVECTOR_SR):int(end_sec*XVECTOR_SR)]
         batch_audio.append(audio)
     # print([a.shape for a in batch_audio])
     # sf.write(sample_path, audio, 16000) # data should be 1-dim tensor
-    batch_spk_emb = xvector.encode(batch_audio, XVECTOR_SR)
+    batch_spk_emb = xvector.encode(batch_audio)
 
     # Step 2: Extract mimi codec
     batch_audio = []

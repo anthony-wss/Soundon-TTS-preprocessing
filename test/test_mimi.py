@@ -13,7 +13,7 @@ for i in range(1):
     batch_audio.append(audio)
 
 model = MimiModel()
-out = model.encode(batch_audio, 24000)
+out = model.encode(batch_audio)
 print([x.shape for x in out])
 
 
