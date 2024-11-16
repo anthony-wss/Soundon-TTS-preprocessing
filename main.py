@@ -56,7 +56,9 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
         end_sec = frame_list[-1].end_sec
 
         audio = audio_data_manager.get(audio_file, speaker_id, XVECTOR_SR)
-        audio = audio[int(start_sec*XVECTOR_SR):int(end_sec*XVECTOR_SR)]
+        start_frame = int(start_sec*XVECTOR_SR)
+        end_frame = min(start_frame + 5*XVECTOR_SR, int(end_sec*XVECTOR_SR))  # At most 5 sec
+        audio = audio[start_frame:end_frame]
         batch_audio.append(audio)
     # print([a.shape for a in batch_audio])
     # sf.write(sample_path, audio, 16000) # data should be 1-dim tensor
@@ -69,7 +71,7 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
         end_sec = frame_list[-1].end_sec
         audio = audio_data_manager.get(audio_file, speaker_id, MIMI_SR)
         audio = audio[int(start_sec*MIMI_SR):int(end_sec*MIMI_SR)]
-        batch_audio.append(audio)
+        batch_audio.append(audio.numpy())
     batch_codes = mimi.encode(batch_audio, MIMI_SR)
 
     # Step 3: Process Text

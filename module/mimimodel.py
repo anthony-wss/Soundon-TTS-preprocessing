@@ -1,8 +1,8 @@
-from huggingface_hub import hf_hub_download
 import torch
-
-from moshi.models import loaders, LMGen
 import numpy as np
+from transformers import MimiModel as hf_MimiModel
+from transformers import AutoFeatureExtractor
+from math import ceil
 
 
 """
@@ -10,9 +10,8 @@ TODO: Add cuda support
 """
 class MimiModel:
     def __init__(self):
-        mimi_weight = hf_hub_download(loaders.DEFAULT_REPO, loaders.MIMI_NAME)
-        self.mimi = loaders.get_mimi(mimi_weight, device='cpu')
-        self.mimi.set_num_codebooks(8)  # up to 32 for mimi, but limited to 8 for moshi.
+        self.mimi = hf_MimiModel.from_pretrained("kyutai/mimi")
+        self.feature_extractor = AutoFeatureExtractor.from_pretrained("kyutai/mimi")
         self.mimi.cuda()
 
     def pad_or_truncate(self, batch_audio, target_length):
@@ -30,11 +29,22 @@ class MimiModel:
 
 
     def encode(self, audios, sample_rate):
-        target_length = max(len(audio) for audio in audios)  # Example: Use the longest audio
-        batch_audio_padded = self.pad_or_truncate(audios, target_length)
+        """
+        audios: List[np.array]
+        """
+        # target_length = max(len(audio) for audio in audios)  # Example: Use the longest audio
+        # batch_audio_padded = self.pad_or_truncate(audios, target_length)
+        length = [ceil(audio.shape[0]/24000*12.5) for audio in audios]
+        inputs = self.feature_extractor(audios, sampling_rate=sample_rate, return_tensors="pt", padding=True)
         with torch.no_grad():
-            batch_audio_padded = batch_audio_padded.cuda()
-            codes = self.mimi.encode(batch_audio_padded)
+            # batch_audio_padded = batch_audio_padded.cuda()
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}  # Move each input tensor to GPU
+            batch_output = self.mimi.encode(**inputs, num_quantizers=8).audio_codes.cpu()
+
+        codes = []
+        for i in range(batch_output.shape[0]):
+            code_seq = batch_output[i][:, :length[i]]
+            codes.append(code_seq)
 
         return codes
 

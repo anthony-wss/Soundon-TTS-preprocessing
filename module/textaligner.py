@@ -143,8 +143,8 @@ class TextAligner:
                 text_token = self.tokenizer.encode(frame.content, add_special_tokens=False)
                 
                 print(insert_idx, frame.content, len(text_token))
+            return None, None
 
-            exit()
         
         text_with_pad = self.tokenizer.decode(token_seq)
         return raw_text, text_with_pad
