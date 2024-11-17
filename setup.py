@@ -6,7 +6,7 @@ with open('requirements.txt') as f:
 
 setup(
     name='soundon_module',
-    version='0.0.1',
+    version='1.0',
     description='',
     url='https://github.com/anthony-wss/Soundon-TTS-preprocessing',
     author='Anthony',
