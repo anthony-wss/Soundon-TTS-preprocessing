@@ -28,14 +28,14 @@ class MimiModel:
         return torch.from_numpy(processed_audio).unsqueeze(1)
 
 
-    def encode(self, audios, sample_rate):
+    def encode(self, audios):
         """
         audios: List[np.array]
         """
         # target_length = max(len(audio) for audio in audios)  # Example: Use the longest audio
         # batch_audio_padded = self.pad_or_truncate(audios, target_length)
         length = [ceil(audio.shape[0]/24000*12.5) for audio in audios]
-        inputs = self.feature_extractor(audios, sampling_rate=sample_rate, return_tensors="pt", padding=True)
+        inputs = self.feature_extractor(audios, sampling_rate=24000, return_tensors="pt", padding=True)
         with torch.no_grad():
             # batch_audio_padded = batch_audio_padded.cuda()
             inputs = {k: v.to("cuda") for k, v in inputs.items()}  # Move each input tensor to GPU
@@ -47,4 +47,16 @@ class MimiModel:
             codes.append(code_seq)
 
         return codes
+
+    def decode(self, unit):
+        """ 
+            Batch decode not supported yet
+            unit: torch.tensor if shape [8, len]
+        """
+        assert len(unit.shape) == 2
+        assert unit.shape[0] == 8
+        unit = unit.unsqueeze(0)
+        unit = unit.cuda()
+        audio_values = self.mimi.decode(unit).audio_values.cpu().detach()
+        return audio_values
 

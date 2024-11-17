@@ -10,3 +10,4 @@ tensorflow
 tf-keras
 moshi
 pydub
+speechbrain

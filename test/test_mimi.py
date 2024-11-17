@@ -1,6 +1,7 @@
 import torchaudio
 import librosa
 from module.mimimodel import MimiModel
+import soundfile as sf
 
 
 batch_audio = []
@@ -15,5 +16,8 @@ for i in range(1):
 model = MimiModel()
 out = model.encode(batch_audio)
 print([x.shape for x in out])
+
+audio_values = model.decode(out[0])
+sf.write("recon.wav", audio_values[0].squeeze(), 24000)
 
 

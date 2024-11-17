@@ -22,6 +22,7 @@ from copy import deepcopy
 import os.path as osp
 import os
 from pydub import AudioSegment
+import numpy as np
 
 
 TOKENIZER_REPO = "voidful/Llama-3.2-11B-ASR"
@@ -32,7 +33,7 @@ PAD_TOKEN_ID = 51867
 XVECTOR_SR = 16000
 MIMI_SR = 24000
 BATCH_SIZE = 16
-BATCH_SIZE_SEC = 400
+BATCH_SIZE_SEC = 300
     
 
 mimi = MimiModel()
@@ -40,6 +41,13 @@ tokenizer = AutoTokenizer.from_pretrained(TOKENIZER_REPO)
 xvector = XVectorModel()
 audio_data_manager = AudioDataManager()
 text_aligner = TextAligner(tokenizer, PAD_TOKEN, EPAD_TOKEN)
+
+
+def get_sample_duration():
+    dur = float(np.random.normal(15, 5, 1)[0])
+    dur = min(dur, 30)
+    dur = max(dur, 1)
+    return dur
 
 
 def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
@@ -70,7 +78,7 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
         audio = audio_data_manager.get(audio_file, speaker_id, MIMI_SR)
         audio = audio[int(start_sec*MIMI_SR):int(end_sec*MIMI_SR)]
         batch_audio.append(audio.numpy())
-    batch_codes = mimi.encode(batch_audio, MIMI_SR)
+    batch_codes = mimi.encode(batch_audio)
 
     # Step 3: Process Text
     batch_raw_text, batch_text_with_pad = [], []
@@ -146,13 +154,16 @@ def main(root_folder):
 
                 # Step 2: concatenate frames into samples. Split at silence >= 0.3 second.
                 clips = {spk: [] for spk in speaker_set}
+                spk_target_len = {spk: get_sample_duration() for spk in speaker_set}
                 for frame in frame_list:
                     spk_clips = clips[frame.speaker]
                     # Only run at the first frame of every speaker
                     if not spk_clips:
                         spk_clips.append([frame])
-                    if frame.start_sec - spk_clips[-1][-1].end_sec >= 0.3:
+                        continue
+                    if frame.end_sec - spk_clips[-1][0].start_sec >= spk_target_len[frame.speaker]:
                         spk_clips.append([frame])
+                        spk_target_len[frame.speaker] = get_sample_duration()
                     else:
                         spk_clips[-1].append(frame)
 
