@@ -5,9 +5,6 @@ from transformers import AutoFeatureExtractor
 from math import ceil
 
 
-"""
-TODO: Add cuda support
-"""
 class MimiModel:
     def __init__(self):
         self.mimi = hf_MimiModel.from_pretrained("kyutai/mimi")
