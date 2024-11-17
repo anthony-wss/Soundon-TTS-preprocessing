@@ -82,17 +82,24 @@ def dump_sample(batch_frame_list, audio_file, speaker_id, sample_path):
 
     # Step 3: Process Text
     batch_raw_text, batch_text_with_pad = [], []
+    idx_to_remove = []
     for i in range(len(batch_codes)):
         codes = batch_codes[i]
         frame_list = batch_frame_list[i]
         codec_length = codes.shape[-1]
         raw_text, text_with_pad = text_aligner.pad(frame_list, codec_length)
         if raw_text is None or text_with_pad is None:
-            del batch_codes[i]
-            del batch_spk_emb[i]
-        else:
-            batch_raw_text.append(raw_text)
-            batch_text_with_pad.append(text_with_pad)
+            idx_to_remove.append(i)
+        batch_raw_text.append(raw_text)
+        batch_text_with_pad.append(text_with_pad)
+
+    def remove_idx(arr, idx_to_remove):
+        return [arr[i] for i in range(len(arr)) if i not in idx_to_remove]
+
+    batch_raw_text = remove_idx(batch_raw_text, idx_to_remove)
+    batch_text_with_pad = remove_idx(batch_text_with_pad, idx_to_remove)
+    batch_codes = remove_idx(batch_codes, idx_to_remove)
+    batch_spk_emb = remove_idx(batch_spk_emb, idx_to_remove)
     
     sample_obj = {
         "text": batch_raw_text,
