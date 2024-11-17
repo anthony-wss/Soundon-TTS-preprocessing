@@ -133,6 +133,8 @@ class TextAligner:
             for frame in frame_list:
                 timestamp = frame.start_sec - start_sec
                 insert_idx = int((timestamp*1000)//80)
+                if insert_idx >= sequence_length:
+                    break
                 # Seperate two close tokens
                 while text[insert_idx] != self.PAD_TOKEN:
                     if insert_idx + 1 >= sequence_length:

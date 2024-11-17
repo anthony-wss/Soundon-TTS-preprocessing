@@ -4,9 +4,10 @@ from multiprocessing import Process, Queue, set_start_method
 import queue
 from module.worker import PreprocessWorker
 import time
+import torch
 
 def worker_func(audio_root_dir, text_root_dir, worker_id, channel_id_queue):
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(worker_id)
+    torch.cuda.set_device(worker_id)
     worker = PreprocessWorker(audio_root_dir, text_root_dir)
     while True:
         try:
