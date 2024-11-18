@@ -127,7 +127,11 @@ class PreprocessWorker:
             trans_file = osp.join(self.text_root_dir, channel_id, audio_id + ".csv")
             audio_file = osp.join(self.audio_root_dir, channel_id, audio_id + ".m4a")
 
-            audio_file = self.convert_to_wav(audio_file)
+            try:
+                audio_file = self.convert_to_wav(audio_file)
+            except:
+                print("file not found", audio_file)
+                continue
 
             speaker_set = set()
             with open(trans_file) as csvfile:
