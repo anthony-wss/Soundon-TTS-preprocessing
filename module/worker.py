@@ -26,7 +26,8 @@ PAD_TOKEN_ID = 51867
 XVECTOR_SR = 16000
 MIMI_SR = 24000
 BATCH_SIZE = 16
-BATCH_SIZE_SEC = 300
+# BATCH_SIZE_SEC = 300 # V100
+BATCH_SIZE_SEC = 2000  # H100
 
 
 class PreprocessWorker:
@@ -82,6 +83,7 @@ class PreprocessWorker:
             raw_text, text_with_pad = self.text_aligner.pad(frame_list, codec_length)
             if raw_text is None or text_with_pad is None:
                 idx_to_remove.append(i)
+                print("TextAligner fails at", audio_file)
             batch_raw_text.append(raw_text)
             batch_text_with_pad.append(text_with_pad)
 

@@ -30,6 +30,8 @@ if __name__ == "__main__":
 
     channel_id_queue = Queue()
     for channel_id in os.listdir(args.audio_root_dir):
+        if os.path.exists(os.path.join("./moshi_tts_dataset/", channel_id)):
+            continue
         channel_id_queue.put(channel_id)
 
     number_of_processes = args.num_worker
