@@ -8,6 +8,6 @@ torchaudio
 h5py
 tensorflow
 tf-keras
-moshi
 pydub
 speechbrain
+huggingface_hub
