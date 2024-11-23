@@ -1,5 +1,5 @@
 import huggingface_hub
-huggingface_hub.login(token="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")
+huggingface_hub.login()
 from datasets import load_from_disk, concatenate_datasets
 import os
 from tqdm import tqdm
@@ -18,5 +18,6 @@ for ds_dir in tqdm(os.listdir("./moshi_tts_dataset")):
         continue
     
 print(whole_dataset)
+whole_dataset.save_to_disk("./Soundon-tts")
 whole_dataset.push_to_hub("anthony-wss/Soundon-tts")
 
