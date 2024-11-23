@@ -11,3 +11,4 @@ tf-keras
 pydub
 speechbrain
 huggingface_hub
+faster-whisper
