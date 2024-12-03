@@ -4,7 +4,7 @@ import os
 
 class LibriTTSLoader(TTSDatasetLoader):
     def __init__(self, root_dir, split_name):
-        assert split_name in ["train-other-500", "dev-clean", "dev-other", "test-clean", "test-other"]
+        assert split_name in ["train-other-500", "train-clean-100", "train-clean-360", "dev-clean", "dev-other", "test-clean", "test-other"]
         os.makedirs(os.path.join("./libritts_pure_audio/", split_name), exist_ok=True)
         self.data = []
         for root, dirs, files in os.walk(os.path.join(root_dir, split_name)):

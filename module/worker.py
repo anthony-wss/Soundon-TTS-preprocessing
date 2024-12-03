@@ -25,8 +25,8 @@ EPAD_TOKEN = "[END_PAD]"
 PAD_TOKEN_ID = 51867
 XVECTOR_SR = 16000
 MIMI_SR = 24000
-BATCH_SIZE_SEC = 300 # V100
-# BATCH_SIZE_SEC = 2000  # H100
+# BATCH_SIZE_SEC = 300 # V100
+BATCH_SIZE_SEC = 2000  # H100
 
 
 class PreprocessWorker:
@@ -195,7 +195,12 @@ class PreprocessWorker:
                         spk_dataset_dict["x-vector"].extend(sample_obj["x-vector"]) 
                         batch_clip = []
                         torch.cuda.empty_cache()
-
+                if batch_clip:
+                    sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
+                    spk_dataset_dict["text"].extend(sample_obj["text"]) 
+                    spk_dataset_dict["text_with_pad"].extend(sample_obj["text_with_pad"]) 
+                    spk_dataset_dict["unit"].extend(sample_obj["unit"]) 
+                    spk_dataset_dict["x-vector"].extend(sample_obj["x-vector"])
 
                     # patient -= 1
                     # if patient < 0:
@@ -204,7 +209,7 @@ class PreprocessWorker:
                 for colname in ["unit", "x-vector", "text", "text_with_pad"]:
                     samples_dict[colname].extend(spk_dataset_dict[colname])
 
-        os.remove(audio_file)
+        # os.remove(audio_file)
         self.audio_data_manager.pop(audio_file)
         torch.cuda.empty_cache()
         return samples_dict

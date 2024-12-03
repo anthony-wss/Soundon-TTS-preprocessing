@@ -5,12 +5,14 @@ import soundfile as sf
 from tqdm import tqdm
 
 
-root_dir = "/home/anthony/disk-1t/"
+root_dir = "/mnt/home/ntuspeechlabtaipei1/libri-tts/LibriTTS"
 
 if __name__ == "__main__":
-    for ds_name in ["train-other-500", "dev-clean", "dev-other", "test-clean", "test-other"]:
+    # for ds_name in ["train-other-500", "dev-clean", "dev-other", "test-clean", "test-other"]:
+    for ds_name in ["train-clean-100", "train-clean-360"]:
         os.makedirs(os.path.join("./libritts_pure_audio/", ds_name), exist_ok=True)
         progress = 0
+        total_dur = 0
         file_path_list = {}
         for root, dirs, files in os.walk(os.path.join(root_dir, ds_name)):
             for file in files:
@@ -40,10 +42,13 @@ if __name__ == "__main__":
                     wav = torch.concat(audio_buffer)
                     sf.write(os.path.join("./libritts_pure_audio/", ds_name, spk_id, f"clip-{clip_id}.wav"), wav, 16000)
                     clip_id += 1
+                    total_dur += dur
                     dur = 0
                     audio_buffer = []
 
             if dur > 0:
                 wav = torch.concat(audio_buffer)
                 sf.write(os.path.join("./libritts_pure_audio/", ds_name, spk_id, f"clip-{clip_id}.wav"), wav, 16000)
+                total_dur += dur
+        print(ds_name, total_dur / 3600, "hr")
 

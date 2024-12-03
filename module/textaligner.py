@@ -121,6 +121,13 @@ class TextAligner:
                 text[i-1] = self.EPAD_TOKEN
 
         token_seq = self.tokenizer.encode("".join(text), add_special_tokens=False)
+
+        if len(token_seq) > sequence_length:
+            token_seq = token_seq[:sequence_length]
+        elif len(token_seq) < sequence_length:
+            text += [self.PAD_TOKEN] * (sequence_length - len(token_seq))
+            token_seq = self.tokenizer.encode("".join(text), add_special_tokens=False)
+
         try:
             assert len(token_seq) == sequence_length, f"{len(token_seq)} != {sequence_length}"
 
