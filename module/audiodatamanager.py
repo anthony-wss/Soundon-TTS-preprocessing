@@ -16,7 +16,8 @@ class AudioDataManager:
         self._reframe_list = {}
 
     def pop(self, audio_file):
-        del self.audio_cache[audio_file]
+        if audio_file in self.audio_cache:
+            del self.audio_cache[audio_file]
 
     def get(self, audio_file, channel, sample_rate):
         # Load audio from disk
