@@ -9,6 +9,8 @@ import torch
 from datasets import Dataset
 import logging
 
+CONV_BATCH_SIZE = 32
+
 
 def worker_func(worker_id, audio_queue):
     torch.cuda.set_device(worker_id)
@@ -24,15 +26,17 @@ def worker_func(worker_id, audio_queue):
     while True:
         try:
             time.sleep(.5)
-            sample = audio_queue.get()
-            sample_dict = worker.run_conv_sample(sample)
-            if sample_dict:
+            mini_batch = audio_queue.get()
+            samples_dict = worker.run_conv_batch(mini_batch)
+            if samples_dict:
                 logger.debug(f"Processing sample: {sample[1]}")
-                length = sum([len(x) for x in sample_dict["text"]])
+                length = sum([len(x) for x in samples_dict["text"]])
                 logger.debug(f"Content length: {length}")
                 for key in ["unit", "x-vector", "text", "text_with_pad"]:
-                    dataset_dict[key].append(sample_dict[key])
+                    dataset_dict[key].extend(samples_dict[key])
             print("Queue size:", audio_queue.qsize())
+            for audio_file in mini_batch:
+                worker.audio_data_manager.pop(audio_file)
         except queue.Empty:
             logger.info("Queue is empty, worker is exiting.")
             break
@@ -55,8 +59,13 @@ if __name__ == "__main__":
 
     dataset = DialogueLongTTSLoader(root_dir="/mnt/home/ntuspeechlabtaipei1/conv/dialogue_chinese_llama31_70B_user_long")
     audio_queue = Queue()
+    mini_batch = []
     for sample in dataset.iterate():
-        audio_queue.put(sample)
+        mini_batch.append(sample)
+        if len(mini_batch) > CONV_BATCH_SIZE:
+            audio_queue.put(mini_batch)
+    if mini_batch:
+        audio_queue.put(mini_batch)
 
     number_of_processes = args.num_worker
     processes = []

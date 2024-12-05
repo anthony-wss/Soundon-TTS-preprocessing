@@ -123,52 +123,58 @@ class PreprocessWorker:
         return wav_file
 
 
-    def run_conv_sample(self, sample):
-        audio_file = sample[0]
-        trans_file = sample[1]
+    def run_conv_batch(self, samples):
+        batch_xvector_audio = []
+        batch_mimi_audio = []
+        batch_frame_list = []
+        for i in range(len(samples)):
+            audio_file, trans_file = samples[i]
 
-        try:
-            audio_file = self.convert_to_wav(audio_file)
-        except Exception as e:
-            print("file error", sam[0], ":", str(e))
-            return None
+            try:
+                audio_file = self.convert_to_wav(audio_file)
+            except Exception as e:
+                print("file error", audio_file, ":", str(e))
+                continue
 
-        frame_list = {0: [], 1: []}
-        with open(trans_file) as csvfile:
-            reader = csv.reader(csvfile)
-            next(reader, None)
+            frame_list = [[], []]
+            with open(trans_file) as csvfile:
+                reader = csv.reader(csvfile)
+                next(reader, None)
 
-            # Step 1: read all word frames
-            for row in reader:
-                frame = WordFrame(
-                    speaker = int(row[0]),
-                    start_sec = float(row[1][:-1]),
-                    end_sec = float(row[2][:-1]),
-                    content = row[3]
-                )
-                frame_list[frame.speaker].append(frame)
+                # Step 1: read all word frames
+                for row in reader:
+                    frame = WordFrame(
+                        speaker = int(row[0]),
+                        start_sec = float(row[1][:-1]),
+                        end_sec = float(row[2][:-1]),
+                        content = row[3]
+                    )
+                    frame_list[frame.speaker].append(frame)
+            batch_frame_list.extend(frame_list)
+            batch_xvector_audio.extend([
+                self.audio_data_manager.get(audio_file, 0, XVECTOR_SR),
+                self.audio_data_manager.get(audio_file, 1, XVECTOR_SR),
+            ])
+            batch_mimi_audio.extend([
+                self.audio_data_manager.get(audio_file, 0, MIMI_SR),
+                self.audio_data_manager.get(audio_file, 1, MIMI_SR),
+            ])
 
-        sample_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
-        for spk in [0, 1]:
-            audio = self.audio_data_manager.get(audio_file, spk, XVECTOR_SR)
-            batch_spk_emb = self.xvector.encode([audio])
+        samples_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
+        batch_spk_emb = self.xvector.encode(batch_xvector_audio)
+        batch_codes = self.mimi.encode(batch_mimi_audio)
 
-            audio = self.audio_data_manager.get(audio_file, spk, MIMI_SR)
-            batch_codes = self.mimi.encode([audio])
-
-            codes = batch_codes[0]
+        for i in range(len(batch_frame_list)):
+            codes = batch_codes[i]
             codec_length = codes.shape[-1]
-            raw_text, text_with_pad = self.text_aligner.pad(frame_list[spk], codec_length)
-            if raw_text is None or text_with_pad is None:
-                return None
-            torch.cuda.empty_cache()
+            raw_text, text_with_pad = self.text_aligner.pad(batch_frame_list[i], codec_length)
 
-            sample_dict["unit"].append(codes)
-            sample_dict["x-vector"].append(batch_spk_emb[0])
-            sample_dict["text"].append(raw_text)
-            sample_dict["text_with_pad"].append(text_with_pad)
+            samples_dict["unit"].append(codes)
+            samples_dict["x-vector"].append(batch_spk_emb[i])
+            samples_dict["text"].append(raw_text)
+            samples_dict["text_with_pad"].append(text_with_pad)
 
-        return sample_dict
+        return samples_dict
 
 
     def run_sample(self, sample):
