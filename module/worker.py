@@ -50,7 +50,7 @@ class PreprocessWorker:
         return dur
 
 
-    def dump_sample(self, batch_frame_list, audio_file, speaker_id, sample_path):
+    def dump_sample(self, batch_frame_list, audio_file, speaker_id):
         # Step 1: Extract x-vector
         batch_audio = []
         for frame_list in batch_frame_list:
@@ -122,6 +122,55 @@ class PreprocessWorker:
         
         return wav_file
 
+
+    def run_conv_sample(self, sample):
+        audio_file = sample[0]
+        trans_file = sample[1]
+
+        try:
+            audio_file = self.convert_to_wav(audio_file)
+        except Exception as e:
+            print("file error", sam[0], ":", str(e))
+            return None
+
+        frame_list = {0: [], 1: []}
+        with open(trans_file) as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader, None)
+
+            # Step 1: read all word frames
+            for row in reader:
+                frame = WordFrame(
+                    speaker = int(row[0]),
+                    start_sec = float(row[1][:-1]),
+                    end_sec = float(row[2][:-1]),
+                    content = row[3]
+                )
+                frame_list[frame.speaker].append(frame)
+
+        sample_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
+        for spk in [0, 1]:
+            audio = self.audio_data_manager.get(audio_file, spk, XVECTOR_SR)
+            batch_spk_emb = self.xvector.encode([audio])
+
+            audio = self.audio_data_manager.get(audio_file, spk, MIMI_SR)
+            batch_codes = self.mimi.encode([audio])
+
+            codes = batch_codes[0]
+            codec_length = codes.shape[-1]
+            raw_text, text_with_pad = self.text_aligner.pad(frame_list[spk], codec_length)
+            if raw_text is None or text_with_pad is None:
+                return None
+            torch.cuda.empty_cache()
+
+            sample_dict["unit"].append(codes)
+            sample_dict["x-vector"].append(batch_spk_emb[0])
+            sample_dict["text"].append(raw_text)
+            sample_dict["text_with_pad"].append(text_with_pad)
+
+        return sample_dict
+
+
     def run_sample(self, sample):
         audio_file = sample[0]
         trans_file = sample[1]
@@ -187,7 +236,7 @@ class PreprocessWorker:
 
                     max_audio_sec = clip[-1].end_sec - clip[0].start_sec
                     if len(batch_clip) * max_audio_sec >= BATCH_SIZE_SEC:
-                        sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
+                        sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk)
                     # idx += 1
                         spk_dataset_dict["text"].extend(sample_obj["text"]) 
                         spk_dataset_dict["text_with_pad"].extend(sample_obj["text_with_pad"]) 
@@ -196,7 +245,7 @@ class PreprocessWorker:
                         batch_clip = []
                         torch.cuda.empty_cache()
                 if batch_clip:
-                    sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
+                    sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk)
                     spk_dataset_dict["text"].extend(sample_obj["text"]) 
                     spk_dataset_dict["text_with_pad"].extend(sample_obj["text_with_pad"]) 
                     spk_dataset_dict["unit"].extend(sample_obj["unit"]) 
@@ -283,7 +332,7 @@ class PreprocessWorker:
 
                         max_audio_sec = clip[-1].end_sec - clip[0].start_sec
                         if len(batch_clip) * max_audio_sec >= BATCH_SIZE_SEC:
-                            sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk, sample_path=f"./output-{idx}.wav")
+                            sample_obj = self.dump_sample(batch_clip, audio_file, speaker_id=spk)
                         # idx += 1
                             spk_dataset_dict["text"].extend(sample_obj["text"]) 
                             spk_dataset_dict["text_with_pad"].extend(sample_obj["text_with_pad"]) 

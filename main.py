@@ -3,14 +3,14 @@ import os
 from multiprocessing import Process, Queue, set_start_method
 import queue
 from module.worker import PreprocessWorker
-from module.datasets.libritts import LibriTTSLoader
+from module.datasets.dialogue_long import DialogueLongTTSLoader
 import time
 import torch
 from datasets import Dataset
 import logging
 
 
-def worker_func(split_name, worker_id, audio_queue):
+def worker_func(worker_id, audio_queue):
     torch.cuda.set_device(worker_id)
     worker = PreprocessWorker()
     dataset_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
@@ -24,19 +24,20 @@ def worker_func(split_name, worker_id, audio_queue):
     while True:
         try:
             time.sleep(.5)
-            sample = audio_queue.get_nowait()
-            sample_dict = worker.run_sample(sample)
+            sample = audio_queue.get()
+            sample_dict = worker.run_conv_sample(sample)
             if sample_dict:
                 logger.debug(f"Processing sample: {sample[1]}")
                 length = sum([len(x) for x in sample_dict["text"]])
                 logger.debug(f"Content length: {length}")
                 for key in ["unit", "x-vector", "text", "text_with_pad"]:
-                    dataset_dict[key].extend(sample_dict[key])
+                    dataset_dict[key].append(sample_dict[key])
+            print("Queue size:", audio_queue.qsize())
         except queue.Empty:
             logger.info("Queue is empty, worker is exiting.")
             break
     ds = Dataset.from_dict(dataset_dict) 
-    ds.save_to_disk(os.path.join("libritts_dataset", split_name, str(worker_id)))
+    ds.save_to_disk(os.path.join("dialogue_chinese_llama31_70B_user_long", str(worker_id)))
 
 if __name__ == "__main__":
     # Set multiprocessing start method to 'spawn'
@@ -52,22 +53,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    split_name="dev-clean"
-    for split_name in ["dev-clean", "dev-other", "test-clean", "test-other"]:
-    # for split_name in ["train-clean-100", "train-clean-360"]:
-        dataset = LibriTTSLoader(root_dir="/mnt/home/ntuspeechlabtaipei1/anthony/Soundon-TTS-preprocessing/libritts_pure_audio", split_name=split_name)
-        audio_queue = Queue()
-        for sample in dataset.iterate():
-            audio_queue.put(sample)
+    dataset = DialogueLongTTSLoader(root_dir="/mnt/home/ntuspeechlabtaipei1/conv/dialogue_chinese_llama31_70B_user_long")
+    audio_queue = Queue()
+    for sample in dataset.iterate():
+        audio_queue.put(sample)
 
-        number_of_processes = args.num_worker
-        processes = []
-        for w in range(number_of_processes):
-            p = Process(target=worker_func, args=(split_name, w, audio_queue))
-            processes.append(p)
-            p.start()
+    number_of_processes = args.num_worker
+    processes = []
+    for w in range(number_of_processes):
+        p = Process(target=worker_func, args=(w, audio_queue))
+        processes.append(p)
+        p.start()
 
-        # Completing process
-        for p in processes:
-            p.join()
+    # Completing process
+    for p in processes:
+        p.join()
 
