@@ -15,7 +15,7 @@ CONV_BATCH_SIZE = 3
 def worker_func(worker_id, audio_queue):
     torch.cuda.set_device(worker_id)
     worker = PreprocessWorker()
-    dataset_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
+    dataset_dict = {"machine_unit": [], "x-vector": [], "text": [], "text_with_pad": [], "user_audio_path": []}
 
     logger = logging.getLogger(f"worker_{worker_id}")
     handler = logging.FileHandler(f'example.{worker_id}.log', encoding='utf-8')
@@ -32,7 +32,7 @@ def worker_func(worker_id, audio_queue):
                 logger.debug(f"Processing sample: {[x[0] for x in mini_batch]}")
                 length = sum([len(x) for x in samples_dict["text"]])
                 logger.debug(f"Content length: {length}")
-                for key in ["unit", "x-vector", "text", "text_with_pad"]:
+                for key in dataset_dict.keys():
                     dataset_dict[key].extend(samples_dict[key])
             print("Queue size:", audio_queue.qsize())
             for audio_file in mini_batch:

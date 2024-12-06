@@ -155,24 +155,28 @@ class PreprocessWorker:
                 self.audio_data_manager.get(audio_file, 0, XVECTOR_SR),
                 self.audio_data_manager.get(audio_file, 1, XVECTOR_SR),
             ])
-            batch_mimi_audio.extend([
-                self.audio_data_manager.get(audio_file, 0, MIMI_SR),
+            batch_mimi_audio.append(
                 self.audio_data_manager.get(audio_file, 1, MIMI_SR),
-            ])
+            )
 
-        samples_dict = {"unit": [], "x-vector": [], "text": [], "text_with_pad": []}
+        samples_dict = {"machine_unit": [], "x-vector": [], "text": [], "text_with_pad": [], "user_audio_path": []}
         batch_spk_emb = self.xvector.encode(batch_xvector_audio)
         batch_codes = self.mimi.encode(batch_mimi_audio)
 
-        for i in range(len(batch_frame_list)):
-            codes = batch_codes[i]
+        for i in range(0, len(batch_frame_list), 2):
+            codes = batch_codes[i//2]
+            samples_dict["machine_unit"].append(codes)
             codec_length = codes.shape[-1]
-            raw_text, text_with_pad = self.text_aligner.pad(batch_frame_list[i], codec_length)
 
-            samples_dict["unit"].append(codes)
-            samples_dict["x-vector"].append(batch_spk_emb[i])
-            samples_dict["text"].append(raw_text)
-            samples_dict["text_with_pad"].append(text_with_pad)
+            # user
+            u_raw_text, u_text_with_pad = self.text_aligner.pad(batch_frame_list[i], codec_length)
+            # machine
+            m_raw_text, m_text_with_pad = self.text_aligner.pad(batch_frame_list[i+1], codec_length)
+
+            samples_dict["x-vector"].append([batch_spk_emb[i], batch_spk_emb[i+1]])
+            samples_dict["text"].append([u_raw_text, m_raw_text])
+            samples_dict["text_with_pad"].append([u_text_with_pad, m_text_with_pad])
+            samples_dict["user_audio_path"].append(samples[i//2][0])
 
         return samples_dict
 
