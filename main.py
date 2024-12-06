@@ -26,7 +26,7 @@ def worker_func(worker_id, audio_queue):
     while True:
         try:
             time.sleep(.5)
-            mini_batch = audio_queue.get()
+            mini_batch = audio_queue.get(True, 60)
             samples_dict = worker.run_conv_batch(mini_batch)
             if samples_dict:
                 logger.debug(f"Processing sample: {[x[0] for x in mini_batch]}")
