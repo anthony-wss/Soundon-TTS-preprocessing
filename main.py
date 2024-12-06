@@ -9,7 +9,7 @@ import torch
 from datasets import Dataset
 import logging
 
-CONV_BATCH_SIZE = 32
+CONV_BATCH_SIZE = 3
 
 
 def worker_func(worker_id, audio_queue):
@@ -29,14 +29,14 @@ def worker_func(worker_id, audio_queue):
             mini_batch = audio_queue.get()
             samples_dict = worker.run_conv_batch(mini_batch)
             if samples_dict:
-                logger.debug(f"Processing sample: {sample[1]}")
+                logger.debug(f"Processing sample: {[x[0] for x in mini_batch]}")
                 length = sum([len(x) for x in samples_dict["text"]])
                 logger.debug(f"Content length: {length}")
                 for key in ["unit", "x-vector", "text", "text_with_pad"]:
                     dataset_dict[key].extend(samples_dict[key])
             print("Queue size:", audio_queue.qsize())
             for audio_file in mini_batch:
-                worker.audio_data_manager.pop(audio_file)
+                worker.audio_data_manager.pop(audio_file[0])
         except queue.Empty:
             logger.info("Queue is empty, worker is exiting.")
             break
@@ -62,8 +62,9 @@ if __name__ == "__main__":
     mini_batch = []
     for sample in dataset.iterate():
         mini_batch.append(sample)
-        if len(mini_batch) > CONV_BATCH_SIZE:
+        if len(mini_batch) >= CONV_BATCH_SIZE:
             audio_queue.put(mini_batch)
+            mini_batch = []
     if mini_batch:
         audio_queue.put(mini_batch)
 

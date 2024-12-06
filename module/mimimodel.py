@@ -39,6 +39,7 @@ class MimiModel:
         # target_length = max(len(audio) for audio in audios)  # Example: Use the longest audio
         # batch_audio_padded = self.pad_or_truncate(audios, target_length)
         length = [ceil(audio.shape[0]/24000*12.5) for audio in audios]
+        audios = [np.array(v) for v in audios]
         inputs = self.feature_extractor(audios, sampling_rate=24000, return_tensors="pt", padding=True)
         with torch.no_grad():
             # batch_audio_padded = batch_audio_padded.cuda()
