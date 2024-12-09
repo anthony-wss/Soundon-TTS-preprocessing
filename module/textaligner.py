@@ -11,11 +11,11 @@ class TextAligner:
 
         Warning: the return value can be both None for weird data
         """
-        start_sec = frame_list[0].start_sec
+        # start_sec = frame_list[0].start_sec
         raw_text = ""
         text = [self.PAD_TOKEN for _ in range(sequence_length)]
         for frame in frame_list:
-            timestamp = frame.start_sec - start_sec
+            timestamp = frame.start_sec
             insert_idx = int((timestamp*1000)//80)
 
             # Edge case: timestamp can be very close to clip end, simpley discard that text
@@ -138,7 +138,7 @@ class TextAligner:
             # print(_text)
             text = [self.PAD_TOKEN for _ in range(sequence_length)]
             for frame in frame_list:
-                timestamp = frame.start_sec - start_sec
+                timestamp = frame.start_sec
                 insert_idx = int((timestamp*1000)//80)
                 if insert_idx >= sequence_length:
                     break
