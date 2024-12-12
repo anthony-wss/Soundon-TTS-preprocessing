@@ -6,13 +6,13 @@ from module.worker import PreprocessWorker
 from module.datasets.dialogue_long import DialogueLongTTSLoader
 import time
 import torch
-from datasets import Dataset
+from datasets import Dataset, load_from_disk, concatenate_datasets
 import logging
 
 CONV_BATCH_SIZE = 3
 
 
-def worker_func(worker_id, audio_queue):
+def worker_func(worker_id, audio_queue, save_path):
     torch.cuda.set_device(worker_id)
     worker = PreprocessWorker()
     dataset_dict = {"machine_unit": [], "x-vector": [], "text": [], "text_with_pad": [], "user_audio_path": []}
@@ -41,7 +41,7 @@ def worker_func(worker_id, audio_queue):
             logger.info("Queue is empty, worker is exiting.")
             break
     ds = Dataset.from_dict(dataset_dict) 
-    ds.save_to_disk(os.path.join("dialogue_chinese_llama31_70B_user_long", str(worker_id)))
+    ds.save_to_disk(os.path.join(save_path, str(worker_id)))
 
 if __name__ == "__main__":
     # Set multiprocessing start method to 'spawn'
@@ -50,14 +50,15 @@ if __name__ == "__main__":
     parser = ArgumentParser()
 
     # TODO: Make Soundon works by defining `datasets/soundon.py`
-    parser.add_argument("--audio_root_dir")
-    parser.add_argument("--text_root_dir")
+    parser.add_argument("--root_dir", required=True, help="Path to root dir containing audios/ and timestamp/")
     # parser.add_argument("--split_name", required=True)
     parser.add_argument("--num_worker", type=int, default=1)
     args = parser.parse_args()
 
 
-    dataset = DialogueLongTTSLoader(root_dir="/mnt/home/ntuspeechlabtaipei1/conv/dialogue_chinese_llama31_70B_user_long")
+    dataset = DialogueLongTTSLoader(root_dir=args.root_dir)
+    save_path = os.path.join(".", args.root_dir.split('/')[-1])
+
     audio_queue = Queue()
     mini_batch = []
     for sample in dataset.iterate():
@@ -71,11 +72,22 @@ if __name__ == "__main__":
     number_of_processes = args.num_worker
     processes = []
     for w in range(number_of_processes):
-        p = Process(target=worker_func, args=(w, audio_queue))
+        p = Process(target=worker_func, args=(w, audio_queue, save_path))
         processes.append(p)
         p.start()
 
     # Completing process
     for p in processes:
         p.join()
+
+    whole_dataset = None
+    for i in range(number_of_processes):
+        ds = load_from_disk(os.path.join(save_path, str(i)))
+
+        if not whole_dataset:
+            whole_dataset = ds
+        else:
+            whole_dataset = concatenate_datasets([whole_dataset, ds])
+    save_path = os.path.join(".", "hf_"+args.root_dir.split('/')[-1])
+    whole_dataset.save_to_disk(save_path)
 
