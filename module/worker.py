@@ -151,13 +151,17 @@ class PreprocessWorker:
                     )
                     frame_list[frame.speaker].append(frame)
             batch_frame_list.extend(frame_list)
-            batch_xvector_audio.extend([
-                self.audio_data_manager.get(audio_file, 0, XVECTOR_SR),
-                self.audio_data_manager.get(audio_file, 1, XVECTOR_SR),
-            ])
-            batch_mimi_audio.append(
-                self.audio_data_manager.get(audio_file, 1, MIMI_SR),
-            )
+            try:
+                batch_xvector_audio.extend([
+                    self.audio_data_manager.get(audio_file, 0, XVECTOR_SR),
+                    self.audio_data_manager.get(audio_file, 1, XVECTOR_SR),
+                ])
+                batch_mimi_audio.append(
+                    self.audio_data_manager.get(audio_file, 1, MIMI_SR),
+                )
+            except Exception as e:
+                print("file error", audio_file, "e", str(e))
+                continue
 
         samples_dict = {"machine_unit": [], "x-vector": [], "text": [], "text_with_pad": [], "user_audio_path": []}
         batch_spk_emb = self.xvector.encode(batch_xvector_audio)
