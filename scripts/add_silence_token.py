@@ -1,14 +1,23 @@
 from datasets import load_from_disk
 import os
 import csv
-from module.wordframe import WordFrame
+# from module.wordframe import WordFrame
 from math import ceil
 from argparse import ArgumentParser
 
+from dataclasses import dataclass
 
-def add_silence_mask(example):
+@dataclass
+class WordFrame:
+    speaker: int
+    start_sec: float
+    end_sec: float
+    content: str
+
+
+def add_silence_mask(example, timestamp_dir):
     trans_filename = example["user_audio_path"].split("/")[-1][:-3] + "csv"
-    timestamp_file = os.path.join(TRANS_DIR, trans_filename)
+    timestamp_file = os.path.join(timestamp_dir, trans_filename)
     # print("DEBUG", timestamp_file)
     frame_list = []
     with open(timestamp_file) as fin:
@@ -76,5 +85,5 @@ if __name__ == "__main__":
         args.hf_dataset_path = args.hf_dataset_path[:-1]
 
     ds = load_from_disk(args.hf_dataset_path)
-    ds.map(add_silence_mask).save_to_disk(args.hf_dataset_path + "_with_silence")
+    ds.map(add_silence_mask, fn_kwargs={"timestamp_dir": args.trans_dir}).save_to_disk(args.hf_dataset_path + "_with_silence")
 
