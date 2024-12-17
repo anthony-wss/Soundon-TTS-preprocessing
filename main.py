@@ -40,6 +40,8 @@ def worker_func(worker_id, audio_queue, save_path):
         except queue.Empty:
             logger.info("Queue is empty, worker is exiting.")
             break
+        except Exception as e:
+            logger.error(f"An error occurred: {e}", exc_info=True)
     ds = Dataset.from_dict(dataset_dict) 
     ds.save_to_disk(os.path.join(save_path, str(worker_id)))
 

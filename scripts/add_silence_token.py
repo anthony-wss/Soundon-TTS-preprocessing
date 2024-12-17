@@ -70,7 +70,10 @@ def add_silence_mask(example, timestamp_dir):
 
         for i in range(8):
             for j in range(start_idx, end_idx+1):
-                example["machine_unit"][i][j] = 0
+                try:
+                    example["machine_unit"][i][j] = 0
+                except:
+                    continue
 
         start = end + 1
     return example
